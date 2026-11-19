@@ -117,7 +117,7 @@ pip install -r requirements.txt
 make all     # or: python run_all.py
 ```
 
-That one command rebuilds every figure in `figures/` & every number above (printed, & saved to `outputs/summary.md`). It takes about 4 minutes on a laptop CPU. All seeds are fixed, so two runs on one machine give identical numbers; a different machine or PyTorch build may differ in the last decimal place.
+That one command rebuilds every figure in `figures/` & every number above (printed, & saved to `outputs/summary.md`). It takes about 5 minutes on a laptop CPU. All seeds are fixed, so two runs on one machine give identical numbers; a different machine or PyTorch build may differ in the last decimal place.
 
 Run the tests with `make test` (75 tests, about 15 seconds).
 

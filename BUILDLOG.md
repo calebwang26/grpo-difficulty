@@ -316,3 +316,37 @@ pipeline & every file plus written answers to the five "Defend it" questions.
   rate 1.7%) is not the same as tasks at a true 0%.
 - *The business context is described generically* ("AI training-data brokers"), with no
   company, customer or partner names & no prices.
+
+## Step 8: pre-publish checklist
+
+The repo is still **private**. Results of each check:
+
+| # | Check | Result |
+| --- | --- | --- |
+| 1 | `gitleaks detect` over the entire git history | Pass: no leaks found |
+| 2 | Only the no-reply email in `git log` | **Fail: see below** |
+| 3 | No confidential business terms or personal details in the repo | Pass: none found in any tracked file. The only personal detail is the name in `LICENSE` |
+| 4 | No file over 50 MB, small repo | Pass: 1.2 MB of git objects, largest tracked file is a 172 KB PNG |
+| 5 | CI passes on `main`, & a fresh clone runs end to end | Pass: CI is green on `main`. A fresh `git clone` into a temp folder followed by `make all` finished in 327 seconds & produced a `summary.md` identical, character for character, to the one the README was written from |
+| 6 | Owner reviews the README & approves | Waiting |
+| 7 | Switch the repo to public | Not done, waiting on 2 & 6 |
+
+**Check 2 failed, & why.** Every commit I made locally carries the no-reply address.
+But the seven merge commits were created by GitHub when each pull request was merged, &
+GitHub signed those with the account's primary email address rather than the no-reply
+one. Local git settings don't apply to commits GitHub creates.
+
+- *Stopping it happening again:* the last pull request was merged with
+  `gh pr merge --author-email <no-reply address>`. Turning on "Keep my email addresses
+  private" in GitHub → Settings → Emails would make that automatic.
+- *Fixing the seven existing commits* means rewriting history & force-pushing `main`.
+  That is on the "stop & ask" list, so it has not been done.
+
+**Other notes**
+
+- `HANDOFF.md` is in `.gitignore` & has never been committed.
+- Branch protection is not available on private repos on a free plan, so "a PR merges
+  only when both checks pass" was enforced by hand: every merge waited for the tests &
+  gitleaks checks to go green. The one failing check (pull request 1, a token-permission
+  error) was fixed before merging.
+- Removed one unused import from `tests/test_experiment.py`.
