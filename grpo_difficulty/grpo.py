@@ -19,6 +19,8 @@ task contributes no gradient. ``signal.py`` has the formula for how often that h
 import torch
 import torch.nn.functional as F
 
+SIGNAL_BUCKETS = 20  # pass-rate buckets (0–5%, 5–10%, ...) used to check the theory
+
 
 def group_advantages(rewards, normalize=False, eps=1e-6):
     """Advantage of each answer relative to its own group.
@@ -55,11 +57,15 @@ def sample_groups(logits, answers, group_size, generator=None):
     return sampled, rewards
 
 
-def nonzero_group_fraction(rewards):
-    """Share of groups that are mixed, i.e. have at least one nonzero advantage."""
+def mixed_groups(rewards):
+    """True for every group that is mixed, i.e. has at least one nonzero advantage."""
     n_correct = rewards.sum(dim=1)
-    mixed = (n_correct > 0) & (n_correct < rewards.shape[1])
-    return mixed.float().mean().item()
+    return (n_correct > 0) & (n_correct < rewards.shape[1])
+
+
+def nonzero_group_fraction(rewards):
+    """Share of groups that are mixed."""
+    return mixed_groups(rewards).float().mean().item()
 
 
 def grpo_step(policy, optimizer, features, answers, group_size, generator=None, normalize=False):
@@ -67,6 +73,9 @@ def grpo_step(policy, optimizer, features, answers, group_size, generator=None, 
     logits = policy(features)
     sampled, rewards = sample_groups(logits, answers, group_size, generator)
     loss = grpo_loss(logits, sampled, rewards, normalize)
+    with torch.no_grad():
+        # each task's true pass rate at the moment its group was sampled
+        pass_rate = F.softmax(logits, dim=1).gather(1, answers[:, None])[:, 0]
     optimizer.zero_grad()
     loss.backward()
     optimizer.step()
@@ -74,6 +83,8 @@ def grpo_step(policy, optimizer, features, answers, group_size, generator=None, 
         "loss": loss.item(),
         "nonzero_fraction": nonzero_group_fraction(rewards),
         "mean_reward": rewards.mean().item(),
+        "pass_rate": pass_rate,
+        "mixed": mixed_groups(rewards),
     }
 
 
@@ -88,12 +99,17 @@ def train_grpo(policy, features, answers, steps, batch_tasks=32, group_size=8, l
     ``eval_fn(policy)`` is called before training & then every ``eval_every`` steps;
     it should return a dict of numbers.
 
-    Returns ``{"steps": per-step logs, "evals": evaluation logs}``.
+    Returns ``{"steps": per-step logs, "evals": evaluation logs, "signal_by_pass_rate":
+    counts for checking the theory curve}``. The last item sorts every sampled group
+    into one of ``SIGNAL_BUCKETS`` buckets by its task's true pass rate at that moment
+    & counts how many groups fell in each bucket & how many of those were mixed.
     """
     optimizer = torch.optim.Adam(policy.parameters(), lr=lr)
     generator = torch.Generator().manual_seed(seed)
     step_logs = {"loss": [], "nonzero_fraction": [], "mean_reward": []}
     eval_logs = []
+    groups_seen = torch.zeros(SIGNAL_BUCKETS)
+    groups_mixed = torch.zeros(SIGNAL_BUCKETS)
 
     def evaluate(step):
         if eval_fn is not None:
@@ -104,8 +120,15 @@ def train_grpo(policy, features, answers, steps, batch_tasks=32, group_size=8, l
         batch = torch.randint(0, len(features), (batch_tasks,), generator=generator)
         stats = grpo_step(policy, optimizer, features[batch], answers[batch],
                           group_size, generator, normalize)
-        for key, value in stats.items():
-            step_logs[key].append(value)
+        for key in step_logs:
+            step_logs[key].append(stats[key])
+        bucket = (stats["pass_rate"] * SIGNAL_BUCKETS).long().clamp(max=SIGNAL_BUCKETS - 1)
+        groups_seen += torch.bincount(bucket, minlength=SIGNAL_BUCKETS)
+        groups_mixed += torch.bincount(bucket[stats["mixed"]], minlength=SIGNAL_BUCKETS)
         if step % eval_every == 0 or step == steps:
             evaluate(step)
-    return {"steps": step_logs, "evals": eval_logs}
+    return {
+        "steps": step_logs,
+        "evals": eval_logs,
+        "signal_by_pass_rate": {"groups": groups_seen.tolist(), "mixed": groups_mixed.tolist()},
+    }
