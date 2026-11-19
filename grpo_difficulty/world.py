@@ -5,7 +5,7 @@ One task is four small integers ``(a, b, x, y)`` & its answer is one of
 
     answer = ((a*x + b*y) // stripe_width) mod num_answers
 
-Picture a 16-by-16 grid of points ``(x, y)``. The rule paints diagonal stripes
+Picture a 32-by-32 grid of points ``(x, y)``. The rule paints diagonal stripes
 across the grid & the answer is the stripe a point falls in. The pair ``(a, b)``
 is the task's rule setting: it turns the stripes & sets how thin they are.
 Small ``a`` & ``b`` give wide stripes (easy to learn), large ones give thin
@@ -15,11 +15,12 @@ the middle of a stripe.
 All four numbers are given to the policy as input features, so what it learns on
 one task carries over to nearby tasks.
 
-The world is cut into three groups of tasks that never overlap:
+The world is cut into four groups of tasks that never overlap:
 
 * ``pretrain``: used for supervised pretraining (the policy sees the answers).
 * ``pool``: the tasks we could "buy" for RL training. Never seen in pretraining.
-* ``test``: held out for evaluation only. Never trained on in any way.
+* ``val``: used only to choose the RL learning rate. Never trained on.
+* ``test``: held out for the final comparison only. Never trained on or tuned on.
 """
 
 from dataclasses import dataclass
@@ -30,12 +31,13 @@ import torch
 @dataclass(frozen=True)
 class WorldConfig:
     num_answers: int = 16   # how many answer tokens (stripe colours)
-    stripe_width: int = 2   # how wide a stripe is, in units of a*x + b*y
+    stripe_width: int = 4   # how wide a stripe is, in units of a*x + b*y
     max_coef: int = 3       # a & b each run from 0 to this
-    grid: int = 16          # x & y each run from 0 to grid - 1
+    grid: int = 32          # x & y each run from 0 to grid - 1
     n_pretrain: int = 800
-    n_pool: int = 1500
-    n_test: int = 800
+    n_pool: int = 8000
+    n_val: int = 2000
+    n_test: int = 2000
     seed: int = 0
 
 
@@ -47,11 +49,13 @@ class World:
     answers: torch.Tensor    # (N,) integers in [0, num_answers)
     pretrain_idx: torch.Tensor
     pool_idx: torch.Tensor
+    val_idx: torch.Tensor
     test_idx: torch.Tensor
 
     def split(self, name):
-        """Return (features, answers) for 'pretrain', 'pool' or 'test'."""
-        idx = {"pretrain": self.pretrain_idx, "pool": self.pool_idx, "test": self.test_idx}[name]
+        """Return (features, answers) for 'pretrain', 'pool', 'val' or 'test'."""
+        idx = {"pretrain": self.pretrain_idx, "pool": self.pool_idx,
+               "val": self.val_idx, "test": self.test_idx}[name]
         return self.features[idx], self.answers[idx]
 
 
@@ -69,7 +73,7 @@ def encode(tasks, config):
 
 
 def make_world(config=WorldConfig()):
-    """Build every task, shuffle with a fixed seed & cut into the three splits."""
+    """Build every task, shuffle with a fixed seed & cut into the four splits."""
     coef_values = range(config.max_coef + 1)
     grid_values = range(config.grid)
     all_tasks = [
@@ -81,7 +85,7 @@ def make_world(config=WorldConfig()):
         for y in grid_values
     ]
     tasks = torch.tensor(all_tasks)
-    needed = config.n_pretrain + config.n_pool + config.n_test
+    needed = config.n_pretrain + config.n_pool + config.n_val + config.n_test
     if needed > len(tasks):
         raise ValueError(f"splits need {needed} tasks but the world only has {len(tasks)}")
 
@@ -93,7 +97,9 @@ def make_world(config=WorldConfig()):
                    config.stripe_width, config.num_answers)
     features = encode(tasks, config)
 
-    a, b = config.n_pretrain, config.n_pretrain + config.n_pool
+    a = config.n_pretrain
+    b = a + config.n_pool
+    c = b + config.n_val
     return World(
         config=config,
         tasks=tasks,
@@ -101,7 +107,8 @@ def make_world(config=WorldConfig()):
         answers=answers,
         pretrain_idx=torch.arange(0, a),
         pool_idx=torch.arange(a, b),
-        test_idx=torch.arange(b, b + config.n_test),
+        val_idx=torch.arange(b, c),
+        test_idx=torch.arange(c, c + config.n_test),
     )
 
 
@@ -110,7 +117,7 @@ def main():
     c = world.config
     print(f"World: {len(world.tasks)} tasks in total, {c.num_answers} answer tokens")
     print(f"Splits: pretrain {len(world.pretrain_idx)}, pool {len(world.pool_idx)}, "
-          f"test {len(world.test_idx)}")
+          f"val {len(world.val_idx)}, test {len(world.test_idx)}")
     print("First five tasks (a, b, x, y) -> answer:")
     for task, answer in zip(world.tasks[:5].tolist(), world.answers[:5].tolist()):
         print(f"  {tuple(task)} -> {answer}")

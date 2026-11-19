@@ -109,6 +109,16 @@ def test_training_is_reproducible_and_logs_the_right_amounts():
     assert [e["step"] for e in logs[0]["evals"]] == [0, 10, 20, 25]
 
 
+def test_signal_buckets_count_every_group():
+    features, answers = _toy_problem()
+    policy = make_policy(4, hidden=32, seed=0)
+    log = train_grpo(policy, features, answers, steps=30, batch_tasks=16, group_size=8, seed=0)
+    buckets = log["signal_by_pass_rate"]
+    assert sum(buckets["groups"]) == 30 * 16
+    assert sum(buckets["mixed"]) == pytest.approx(sum(log["steps"]["nonzero_fraction"]) * 16)
+    assert all(m <= g for m, g in zip(buckets["mixed"], buckets["groups"]))
+
+
 def test_different_seeds_give_different_runs():
     features, answers = _toy_problem()
     out = []
