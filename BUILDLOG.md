@@ -79,3 +79,45 @@ p = 10% & G = 8, 57% of groups still carry signal. The signal only truly vanishe
 tasks far below 10% (p = 1% gives 8%). So the theory predicts a real cost for hard
 tasks only when they are *very* hard, & a similar cost for easy tasks only when they are
 *very* easy.
+
+## Step 3: `world.py` (the task world)
+
+**Built:** a family of 3,840 tasks. Each task is four small integers `(a, b, x, y)` &
+the answer is `((a*x + b*y) // 4) mod 8`, one of 8 tokens. Think of diagonal stripes
+painted over a 16×16 grid: `(a, b)` sets the stripes' direction & thickness, `(x, y)` is
+a point, & the answer is the stripe the point is in. The tasks are shuffled with a fixed
+seed & cut into three non-overlapping splits: 800 for pretraining, 1,500 as the RL
+"pool" & 800 held out for testing.
+
+**This was the hardest design decision in the project, & the first three attempts
+failed.** The spec suggested `(a*x + b) mod m`. I prototyped that before writing any repo
+code, measuring one thing only: after partial pretraining, do *unseen* tasks show a wide
+spread of pass rates?
+
+| Attempt | Input features | What happened on unseen tasks |
+| --- | --- | --- |
+| 1. `(a*x + b) mod m`, m = 11–17 | one-hot | The network memorised its training tasks (100% there) but stayed near chance on unseen ones. Only the trivial `a = 0` rule carried over. Of 444 pool tasks: 365 too hard, 2 sweet spot, 70 too easy. |
+| 2. Same rule | thermometer codes, Fourier features | Same failure. Almost no tasks in the middle. |
+| 3. Same rule | plain scaled numbers | Some spread appeared, but even the easiest rule topped out near 55–85% on unseen tasks & every rule with `a ≥ 3` stayed at ~0%. |
+| 4. Stripe rule `((a*x + b*y) // 4) mod 8` | plain scaled numbers | Unseen-task pass rates track training pass rates closely & spread smoothly from 0 to 1. After 1,000 steps on a 900-task pool: 66 too hard, 364 sweet spot, 302 too easy. |
+
+**Why attempts 1–3 failed:** exact modular arithmetic on small integers changes its
+answer completely when any input moves by one. A small MLP given a few hundred examples
+has nothing smooth to latch onto, so it memorises. That gives two piles (memorised vs
+never seen) & nothing in between, which is useless for a question about the middle.
+
+**Why the stripe rule works:** dividing by the stripe width before taking the remainder
+makes the answer stay the same across several neighbouring points. The function is
+still the same family (a linear rule, then a remainder) but now it is learnable from
+examples, & difficulty comes out graded: thin stripes are harder than wide ones, & points
+at a stripe edge are harder than points in the middle.
+
+**What I was careful about:** the world was picked using only the spread of pass rates
+after pretraining. I had not run any GRPO training when I fixed it, so it could not have
+been chosen to favour one bin.
+
+**Other decisions**
+
+- *Three splits, not two.* The RL pool is never seen during pretraining. That mirrors
+  the real situation: a lab has a pretrained model & is deciding which new tasks to buy.
+- *`a = b = 0` is left out* because its answer is always 0.
