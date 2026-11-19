@@ -415,3 +415,27 @@ workaround from Step 8 is no longer needed.
 | 5 | CI passes on `main`, & a fresh clone runs end to end | Pass: CI is green on the new repo's `main`. A fresh `git clone` of the new repo followed by `make all` finished in 276 seconds & produced a `summary.md` identical, character for character, to the one the README was written from |
 | 6 | Owner reviews the README & approves | Pass: approved |
 | 7 | Switch the repo to public | The last step. Done only after this section is merged, CI is green on `main` & checks 1 & 2 pass once more on the final history |
+
+**Published.** Pull request 1 (the section above) was merged with an ordinary
+`gh pr merge`, & its merge commit carries the no-reply address. With CI green on `main`
+I ran the last checks on one more new clone, then switched the repo to public on
+2026-11-18:
+
+| Check on the final history (43 commits) | Result |
+| --- | --- |
+| `gitleaks detect`, entire history | No leaks found |
+| Author & committer emails | Only the no-reply address & GitHub's own `noreply@github.com` |
+| The 35 replaced commit ids, asked for through the API | None retrievable |
+| Same ids & a clone, tried without logging in after the switch | Clone works; the old ids return "not found"; the private archive is invisible |
+
+**Branch protection** became available once the repo was public, so the rule that was
+enforced by hand in Steps 0–8 is now enforced by GitHub on `main`:
+
+- Changes reach `main` only through a pull request.
+- Both CI checks (`tests` & `gitleaks`) must pass before a merge.
+- Force pushes & deleting the branch are blocked.
+- The rules apply to the repo owner too.
+
+The pull request that added these lines was the first one to go through that gate. The
+backup taken before the rewrite was deleted after the public repo was verified. The old
+commits now exist only in the private archive.
