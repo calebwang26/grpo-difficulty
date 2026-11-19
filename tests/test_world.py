@@ -5,10 +5,10 @@ from grpo_difficulty.world import WorldConfig, encode, make_world, rule
 
 
 def test_default_rule_by_hand():
-    # defaults: stripe width 2, 16 answers. 3*15 + 3*15 = 90; 90 // 2 = 45; 45 mod 16 = 13
+    # defaults: stripe width 4, 16 answers. 3*31 + 3*31 = 186; 186 // 4 = 46; 46 mod 16 = 14
     c = WorldConfig()
-    assert rule(3, 3, 15, 15, c.stripe_width, c.num_answers) == 13
-    assert rule(1, 2, 3, 4, c.stripe_width, c.num_answers) == 5  # 11 // 2 = 5
+    assert rule(3, 3, 31, 31, c.stripe_width, c.num_answers) == 14
+    assert rule(1, 2, 3, 4, c.stripe_width, c.num_answers) == 2  # 11 // 4 = 2
 
 
 def test_rule_by_hand():
@@ -25,6 +25,7 @@ def test_world_sizes_and_ranges():
     assert len(world.tasks) == ((c.max_coef + 1) ** 2 - 1) * c.grid**2
     assert len(world.pretrain_idx) == c.n_pretrain
     assert len(world.pool_idx) == c.n_pool
+    assert len(world.val_idx) == c.n_val
     assert len(world.test_idx) == c.n_test
     assert world.answers.min() >= 0 and world.answers.max() < c.num_answers
     assert world.features.min() >= -1 and world.features.max() <= 1
@@ -33,10 +34,10 @@ def test_world_sizes_and_ranges():
 def test_splits_never_overlap():
     world = make_world()
     as_set = lambda idx: {tuple(t) for t in world.tasks[idx].tolist()}
-    pretrain, pool, test = as_set(world.pretrain_idx), as_set(world.pool_idx), as_set(world.test_idx)
-    assert not pretrain & pool
-    assert not pretrain & test
-    assert not pool & test
+    splits = [as_set(idx) for idx in (world.pretrain_idx, world.pool_idx, world.val_idx, world.test_idx)]
+    for i in range(len(splits)):
+        for j in range(i + 1, len(splits)):
+            assert not splits[i] & splits[j]
     # every task is unique, so no task can hide in two splits under another index
     assert len({tuple(t) for t in world.tasks.tolist()}) == len(world.tasks)
 
