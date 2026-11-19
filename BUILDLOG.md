@@ -59,3 +59,23 @@ on top of a line. Shortened the title & moved the label.
 action lists the pull request's commits, & the workflow's token had no permission to
 read pull requests. Fixed by adding an explicit `permissions` block (`contents: read`,
 `pull-requests: read`) to `ci.yml`.
+
+## Step 2: `signal.py` (the theory)
+
+**Built:** `signal_fraction(p, G) = 1 - p^G - (1-p)^G`, the chance that a GRPO group is
+mixed & therefore has a nonzero gradient. Also `mean_squared_advantage`, which gives
+the average *size* of the advantages (`p(1-p)(G-1)/G`), a brute-force simulation that
+checks the formula, & the plot for G = 4, 8 & 16.
+
+**Decisions**
+
+- *The three G lines share one colour, light to dark,* because group size is an ordered
+  quantity, not three unrelated categories.
+- *The difficulty bins are shaded on the plot* so the theory & the experiment use the
+  same picture.
+
+**Worth noticing already:** the "too hard" bin is not a dead zone by this formula. At
+p = 10% & G = 8, 57% of groups still carry signal. The signal only truly vanishes for
+tasks far below 10% (p = 1% gives 8%). So the theory predicts a real cost for hard
+tasks only when they are *very* hard, & a similar cost for easy tasks only when they are
+*very* easy.
