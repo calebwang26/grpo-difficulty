@@ -187,3 +187,116 @@ one Adam step. Every step logs the share of groups with a nonzero advantage.
 - With the pass rate pinned at 20% & G = 8, the measured share of mixed groups matches
   `signal.py`'s formula to within 1%.
 - Two runs with the same seed produce identical logs.
+
+## Step 6: `experiment.py`, `plots.py`, `run_all.py` (the experiment itself)
+
+This step took three attempts. The first two are recorded here because they changed the
+design, & because the first one is a result in its own right.
+
+### Attempt 1: 300 tasks per bin, settings fixed in advance (failed, informatively)
+
+Settings chosen before running anything: G = 8, 32 tasks per step, Adam lr 1e-3, 1,000
+steps, 300 tasks per bin, world of 3,840 tasks.
+
+**What happened:** held-out pass rate went *down* for every arm, including the
+difficulty-blind random mix.
+
+| Trained on | Held-out pass rate, start → end |
+| --- | --- |
+| Too hard | 51.1% → 34% |
+| Sweet spot | 51.1% → 46% |
+| Too easy | 51.1% → 42% |
+| Random mix | 51.1% → 45% |
+
+**Diagnosis (it was not a bug):** each run's pass rate on its *own* 300 training tasks
+climbed (the mix went 52% → 81%) while held-out fell. The policy was memorising its 300
+tasks. I then tried four learning rates from 3e-5 to 1e-3 on the random-mix arm only, &
+all four showed the same thing: training up, held-out down.
+
+**Why this matters:** if even difficulty-blind RL can't improve held-out accuracy, then
+"which bin teaches more?" has no meaningful answer. The experiment needed a world where
+RL on new tasks generalises at all.
+
+### Attempt 2: a denser world, & a rule for choosing the learning rate
+
+Two changes, both made by looking only at the random-mix arm & a new validation split.
+The three bins & the test set were not consulted.
+
+1. **Denser world.** Grid 16 → 32 & stripe width 2 → 4. This is the same stripe pattern
+   sampled twice as finely in each direction, so there are 15,360 tasks instead of
+   3,840. The pool is now 8,000 tasks, & each arm gets 1,500 tasks instead of 300. With
+   1,500 tasks a run sees each task about 64 times instead of 107 & has far more distinct
+   examples to generalise from. On this world, RL on the random mix raised validation
+   pass rate from 46.5% to 56.2%.
+2. **A fourth split, `val` (2,000 tasks),** used only to choose the learning rate. The
+   rule, written into `select_lr`: train the random-mix arm at each of four learning
+   rates (3 seeds each) & keep the one with the best final validation pass rate. Result:
+   1e-4 → 50.5%, 3e-4 → 53.1%, **1e-3 → 56.2%**, 3e-3 → 50.9%.
+
+Steps went from 1,000 to 3,000 because validation was still improving at 1,000.
+
+**Is this tuning toward a desired answer?** I don't think so, for three reasons: the
+choice used an arm that has no difficulty filter, it used a split the final comparison
+never touches, & the ablation table shows the ranking of the arms is the same at all
+four learning rates anyway.
+
+### Attempt 3: the full pipeline (this is what `make all` runs)
+
+1. World, pretraining, pass rates, bins (cut to 1,500 tasks each).
+2. Learning-rate selection as above.
+3. Main experiment: 4 arms × 5 seeds, 3,000 steps × 32 tasks × G = 8 = 768,000 samples
+   per run, all from the same checkpoint, all scored on the same 2,000 test tasks.
+4. Follow-up arms, added *after* seeing the main result: random mix with the too-hard
+   bin removed, & random mix with the too-easy bin removed.
+5. Ablations: G = 4 & G = 16 (with tasks per step adjusted so samples per step stay at
+   256), the ÷ std advantage, & the three other learning rates.
+6. Replicates: four reshuffled worlds, each with its own freshly pretrained checkpoint.
+
+### Results
+
+| Trained on | Held-out pass rate (5 seeds, mean ± sd) | Change |
+| --- | --- | --- |
+| Nothing (pretrained checkpoint) | 47.2% | |
+| Too hard (<10%) | 38.0% ± 1.1% | −9.2 pts |
+| Sweet spot (20–80%) | 54.2% ± 0.5% | +7.0 pts |
+| Too easy (>90%) | 44.8% ± 0.4% | −2.4 pts |
+| Random mix | 57.1% ± 0.8% | +9.9 pts |
+| Random mix minus too-hard | 56.5% ± 0.3% | +9.3 pts |
+| Random mix minus too-easy | 54.1% ± 0.5% | +6.9 pts |
+
+- **Among the three bins the sweet spot wins clearly,** & it is the only bin that
+  improves held-out accuracy at all. The ranking sweet > easy > hard held in all 6
+  ablations & all 4 replicate worlds.
+- **But the random mix beats the sweet spot,** in the main run, in 5 of 6 ablations'
+  point estimates & in all 4 replicates. I did not expect this.
+- **The "zero gradient" story is true at the level of a single step & measured exactly:**
+  the share of mixed groups sits on the `1 − p^G − (1−p)^G` curve (right panel of
+  `figures/signal_fraction.png`). At the start 94% of sweet-spot groups carried signal
+  against 21% for too-hard & 30% for too-easy.
+- **But it is not what decided the outcome.** The too-hard run was not starved: its own
+  tasks went from 3.6% to 51.6%, & test tasks that started too hard went from 2.5% to
+  49.6%, the biggest gain anywhere in the experiment. It lost overall because it
+  *forgot*: test tasks that started too easy fell from 95.9% to 25.3%. Every single-bin
+  run gains on its own difficulty band & loses on others (`figures/gain_by_difficulty.png`).
+- **Too-easy tasks are not worthless.** On their own they teach nothing new (their run
+  barely moves). Inside a mix they stop the policy forgetting what it already knows:
+  removing them from the mix cost 3 points.
+
+**Other things noticed**
+
+- Outputs are identical across two full runs on this machine (same numbers to every
+  printed digit), so the seeding works.
+- The pool, scored like a benchmark with `passk.py`: pass@8 unbiased 0.758 (95% CI
+  0.750–0.766) against a true value of 0.757; the naive estimator gives 0.747. So the
+  estimator from Step 1 checks out on the experiment's own data, & the naive one is low
+  even at n = 32.
+
+**Problems hit**
+
+- I piped the first full run through `head`, which killed the process before it saved
+  its results. Reran it without the pipe.
+- A full run took 4 minutes when the laptop was idle & 11 minutes while the other two
+  project sessions were using the CPU.
+- First versions of the plots had overlapping labels, & one chart title claimed more
+  than the data showed ("each run helps its own difficulty & hurts the rest": the
+  sweet-spot run also helps hard tasks). Replaced with a neutral title.
