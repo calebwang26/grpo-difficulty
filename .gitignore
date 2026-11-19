@@ -1,0 +1,24 @@
+# session handoff notes (private, never committed)
+HANDOFF.md
+
+# secrets & environments
+.env
+.env.*
+.venv/
+venv/
+
+# python caches
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# generated data & results (rebuilt with `make all`)
+data/
+outputs/
+*.pt
+*.zip
+
+# OS / editor noise
+.DS_Store
+.idea/
+.vscode/

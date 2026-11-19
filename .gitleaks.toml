@@ -1,0 +1,12 @@
+title = "grpo-difficulty gitleaks config"
+
+# Start from the default gitleaks rules.
+[extend]
+useDefault = true
+
+# Synthetic secrets are always marked with FAKE, so only those are allowed.
+# Anything secret-shaped without the marker still blocks the commit.
+[[allowlists]]
+description = "Synthetic values carrying the FAKE marker"
+regexTarget = "match"
+regexes = ['''FAKE''']
