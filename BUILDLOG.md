@@ -121,3 +121,42 @@ been chosen to favour one bin.
 - *Three splits, not two.* The RL pool is never seen during pretraining. That mirrors
   the real situation: a lab has a pretrained model & is deciding which new tasks to buy.
 - *`a = b = 0` is left out* because its answer is always 0.
+
+## Step 4: `policy.py` (the MLP, pretraining, pass rates & bins)
+
+**Built:** a two-hidden-layer MLP (4 inputs → 128 → 128 → one logit per answer),
+supervised pretraining with cross-entropy, two ways to measure a task's pass rate
+(exact, from the softmax, & sampled, n = 32, as a real evaluation would), the three
+bins & a helper that cuts all bins to the same number of tasks.
+
+**The world changed in this step, & here is why.** With the first settings (8 answer
+tokens, stripe width 4) I inspected the "too hard" bin & found it was not really hard:
+
+- Blind guessing among 8 tokens is already right 12.5% of the time, which is *above*
+  the 10% line. A task could only land in the bin if the policy was confidently wrong.
+- The bin's median true pass rate was 8.6%, & only 10 of 1,500 pool tasks were below 1%.
+
+So the bin held tasks the policy solves "rarely", not "never", & the experiment could
+not have tested the "never solves" half of the question. I scanned five settings &
+looked only at the bin sizes & how hard the hard bin was:
+
+| Answer tokens | Stripe width | Pretrain steps | Hard / sweet / easy | Tasks at 0 of 32 | Hard bin median true pass rate |
+| --- | --- | --- | --- | --- | --- |
+| 8 | 4 | 1,000 | 129 / 592 / 523 | 21 | 8.6% |
+| **16** | **2** | **2,000** | **318 / 597 / 317** | **133** | **3.3%** |
+| 16 | 3 | 2,000 | 116 / 483 / 640 | 47 | 5.4% |
+| 32 | 2 | 2,000 | 238 / 631 / 337 | 108 | 2.5% |
+| 32 | 1 | 2,000 | 726 / 459 / 128 | 477 | 0.7% |
+
+I chose **16 tokens, stripe width 2, 2,000 pretraining steps**: the hard & easy bins
+are almost the same size (318 & 317), & the hard bin is properly hard without swallowing
+the whole pool. This was again decided before any GRPO run existed.
+
+**After pretraining (final settings):** mean pass rate 76% on pretraining tasks, 50% on
+the unseen pool & 51% on the test set. Pool & test agree, as they should, since both are
+unseen. The gap to 76% means the policy partly memorised its pretraining tasks.
+
+**A detail worth knowing:** bins are assigned from the *sampled* pass rate (n = 32), so
+they carry sampling noise. The hard bin's true mean pass rate is 4.9%, the sweet spot's
+51.1% & the easy bin's 94.2%. Tasks that got lucky or unlucky in 32 samples are in the
+"wrong" bin, exactly as they would be in a real evaluation.
