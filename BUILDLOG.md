@@ -336,9 +336,13 @@ But the seven merge commits were created by GitHub when each pull request was me
 GitHub signed those with the account's primary email address rather than the no-reply
 one. Local git settings don't apply to commits GitHub creates.
 
-- *Stopping it happening again:* the last pull request was merged with
-  `gh pr merge --author-email <no-reply address>`. Turning on "Keep my email addresses
-  private" in GitHub → Settings → Emails would make that automatic.
+- *Stopping it happening again:* I first tried `gh pr merge --author-email <no-reply
+  address>` on pull request 8. GitHub refused it ("Invalid email address"), which
+  suggests "Keep my email addresses private" is switched off for the account. So pull
+  requests 8 & 9 were merged on the laptop instead (`git merge --no-ff` after CI passed,
+  then a normal push), which signs the merge commit with the local no-reply address.
+  GitHub still marks the pull request as merged. Turning on "Keep my email addresses
+  private" in GitHub → Settings → Emails would make ordinary merges safe.
 - *Fixing the seven existing commits* means rewriting history & force-pushing `main`.
   That is on the "stop & ask" list, so it has not been done.
 
