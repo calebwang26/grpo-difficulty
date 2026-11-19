@@ -267,8 +267,8 @@ four learning rates anyway.
 - **Among the three bins the sweet spot wins clearly,** & it is the only bin that
   improves held-out accuracy at all. The ranking sweet > easy > hard held in all 6
   ablations & all 4 replicate worlds.
-- **But the random mix beats the sweet spot,** in the main run, in 5 of 6 ablations'
-  point estimates & in all 4 replicates. I did not expect this.
+- **But the random mix beats the sweet spot,** in the main run, in all 6 ablations &
+  in all 4 replicates. I did not expect this.
 - **The "zero gradient" story is true at the level of a single step & measured exactly:**
   the share of mixed groups sits on the `1 − p^G − (1−p)^G` curve (right panel of
   `figures/signal_fraction.png`). At the start 94% of sweet-spot groups carried signal
@@ -300,3 +300,19 @@ four learning rates anyway.
 - First versions of the plots had overlapping labels, & one chart title claimed more
   than the data showed ("each run helps its own difficulty & hurts the rest": the
   sweet-spot run also helps hard tasks). Replaced with a neutral title.
+
+## Step 7: README & EXPLAIN
+
+**Built:** `README.md` in the required structure, with every number copied from
+`outputs/summary.md` (which `make all` regenerates), & `EXPLAIN.md`, a walkthrough of the
+pipeline & every file plus written answers to the five "Defend it" questions.
+
+**Decisions**
+
+- *The README leads with the unexpected part.* The honest one-line answer is "partly":
+  the sweet spot beat both extremes, but a random mix beat the sweet spot.
+- *Limitations are specific to this setup,* above all that a tiny network with no drift
+  penalty probably exaggerates forgetting, & that the too-hard bin here (median true pass
+  rate 1.7%) is not the same as tasks at a true 0%.
+- *The business context is described generically* ("AI training-data brokers"), with no
+  company, customer or partner names & no prices.
