@@ -53,3 +53,9 @@ estimator averages 0.652.
 
 **Problems hit:** the first plot had a title wider than the figure & a label sitting
 on top of a line. Shortened the title & moved the label.
+
+**CI problem on the first pull request:** the gitleaks check failed with
+`403 Resource not accessible by integration`. It was not a secret finding. The gitleaks
+action lists the pull request's commits, & the workflow's token had no permission to
+read pull requests. Fixed by adding an explicit `permissions` block (`contents: read`,
+`pull-requests: read`) to `ci.yml`.
