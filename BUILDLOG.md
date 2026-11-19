@@ -29,3 +29,27 @@ a `Makefile` & pinned `requirements.txt`.
 
 **Checked:** the secret scanner blocks an AWS-shaped key without the `FAKE` marker &
 lets the same key through when it carries the marker.
+
+## Step 1: `passk.py` (pass@k estimators)
+
+**Built:** the unbiased pass@k estimator from the Codex paper, the naive plug-in
+estimator, a bootstrap confidence interval over tasks & a simulation that shows the
+naive estimator's bias. Also `style.py`, one shared look for all figures.
+
+**Decisions**
+
+- *Stable computation.* `C(n-c, k) / C(n, k)` is computed as the product
+  `prod (1 - k/i)` for `i` from `n-c+1` to `n`, so no huge binomial numbers are ever
+  formed. A test runs it with n = 100,000.
+- *The bootstrap resamples tasks,* because a benchmark is a sample of tasks & that is
+  the main source of uncertainty in a benchmark score.
+- *The unbiasedness test is exact, not simulated.* It sums the estimator over every
+  possible number of correct answers, weighted by the binomial probability, & checks the
+  total equals `1 - (1-p)^k` to 12 decimal places.
+
+**Result of the demo** (true pass rate 10%, k = 10, true pass@10 = 0.651): with n = 10
+samples the naive estimator averages 0.494, a 24% relative under-read. The unbiased
+estimator averages 0.652.
+
+**Problems hit:** the first plot had a title wider than the figure & a label sitting
+on top of a line. Shortened the title & moved the label.
