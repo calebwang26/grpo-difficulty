@@ -319,17 +319,17 @@ pipeline & every file plus written answers to the five "Defend it" questions.
 
 ## Step 8: pre-publish checklist
 
-The repo is still **private**. Results of each check:
+Results of each check when first run, with the repo still **private**:
 
 | # | Check | Result |
 | --- | --- | --- |
 | 1 | `gitleaks detect` over the entire git history | Pass: no leaks found |
-| 2 | Only the no-reply email in `git log` | **Fail: see below** |
+| 2 | Only the no-reply email in `git log` | **Fail on this first run: see below.** Fixed in Step 9 |
 | 3 | No confidential business terms or personal details in the repo | Pass: none found in any tracked file. The only personal detail is the name in `LICENSE` |
 | 4 | No file over 50 MB, small repo | Pass: 1.2 MB of git objects, largest tracked file is a 172 KB PNG |
 | 5 | CI passes on `main`, & a fresh clone runs end to end | Pass: CI is green on `main`. A fresh `git clone` into a temp folder followed by `make all` finished in 327 seconds & produced a `summary.md` identical, character for character, to the one the README was written from |
-| 6 | Owner reviews the README & approves | Waiting |
-| 7 | Switch the repo to public | Not done, waiting on 2 & 6 |
+| 6 | Owner reviews the README & approves | Waiting at this point. Approved in Step 9 |
+| 7 | Switch the repo to public | Not done at this point, waiting on 2 & 6. See Step 9 |
 
 **Check 2 failed, & why.** Every commit I made locally carries the no-reply address.
 But the seven merge commits were created by GitHub when each pull request was merged, &
@@ -344,13 +344,74 @@ one. Local git settings don't apply to commits GitHub creates.
   GitHub still marks the pull request as merged. Turning on "Keep my email addresses
   private" in GitHub → Settings → Emails would make ordinary merges safe.
 - *Fixing the seven existing commits* means rewriting history & force-pushing `main`.
-  That is on the "stop & ask" list, so it has not been done.
+  That is on the "stop & ask" list, so I stopped & asked. Step 9 has what happened next.
 
 **Other notes**
 
 - `HANDOFF.md` is in `.gitignore` & has never been committed.
 - Branch protection is not available on private repos on a free plan, so "a PR merges
-  only when both checks pass" was enforced by hand: every merge waited for the tests &
-  gitleaks checks to go green. The one failing check (pull request 1, a token-permission
+  only when both checks pass" was enforced by hand while the repo was private: every
+  merge waited for the tests & gitleaks checks to go green. The one failing check (pull request 1, a token-permission
   error) was fixed before merging.
 - Removed one unused import from `tests/test_experiment.py`.
+
+## Step 9: fixing the email & publishing through a fresh repo
+
+I stopped after Step 8 & asked the owner. His decisions:
+
+- He switched on "Keep my email addresses private" in his GitHub settings himself.
+- He approved rewriting the seven merge commits & force-pushing `main`, with a backup
+  taken first.
+- He approved the README.
+- He chose to publish through a **fresh repo** rather than flipping the build repo to
+  public. The reason is below.
+
+**The rewrite.** After saving a backup of every branch (`git bundle create ... --all`),
+I ran `git filter-branch --env-filter` over `main` with one rule: where a commit's
+author email is the personal address, replace it with the no-reply address. Then I
+checked that nothing else had moved:
+
+| Check | Result |
+| --- | --- |
+| Number of commits | 41 before, 41 after |
+| The file tree recorded by each commit | Identical for all 41 |
+| Names, dates & commit messages | Identical for all 41 |
+| Emails left in `git log` | Only the no-reply address (plus GitHub's own `noreply@github.com` as committer on the seven merges it made) |
+
+The push used `git push --force-with-lease`, which refuses to overwrite anything if the
+remote has changed since I last looked. 35 of the 41 commit ids changed. The first six
+commits come before the first merge, so they kept their ids.
+
+**Why a fresh repo.** Rewriting history does not delete the old commits from GitHub.
+Each one stays retrievable by its id, & every merged pull request page links straight
+to its old merge commit. Making the build repo public would have published the personal
+address anyway. So:
+
+1. The build repo was renamed to `grpo-difficulty-dev` & stays private. It is the
+   archive: it keeps pull requests 1–9 & their CI runs.
+2. A new, empty repo was created under the original name, & only the rewritten `main`
+   was pushed to it. It has no other branches.
+3. I asked the new repo for each of the 35 replaced commit ids through GitHub's API.
+   All 35 came back "not found".
+
+One side effect: the merge commits in this repo's history say "Merge pull request #1"
+to "#9", but those pull request pages live in the private archive. Pull request numbers
+start again from 1 here, beginning with the one that added this section.
+
+**Does email privacy work now?** Tested before relying on it. In the private archive I
+opened a throwaway pull request into a throwaway branch (not `main`), merged it with an
+ordinary `gh pr merge`, & read the merge commit: the author was the no-reply address.
+Both branches were then deleted. Ordinary merges are safe again, so the laptop-merge
+workaround from Step 8 is no longer needed.
+
+**The checklist again, on a fresh clone of the new repo** (still private at this point):
+
+| # | Check | Result |
+| --- | --- | --- |
+| 1 | `gitleaks detect` over the entire git history | Pass: no leaks found |
+| 2 | Only the no-reply email in `git log` | Pass |
+| 3 | No confidential business terms or personal details | Pass: none in any tracked file or commit message, in any commit |
+| 4 | No file over 50 MB, small repo | Pass: 836 KB of git data, largest tracked file is a 172 KB PNG |
+| 5 | CI passes on `main`, & a fresh clone runs end to end | Pass: CI is green on the new repo's `main`. A fresh `git clone` of the new repo followed by `make all` finished in 276 seconds & produced a `summary.md` identical, character for character, to the one the README was written from |
+| 6 | Owner reviews the README & approves | Pass: approved |
+| 7 | Switch the repo to public | The last step. Done only after this section is merged, CI is green on `main` & checks 1 & 2 pass once more on the final history |
