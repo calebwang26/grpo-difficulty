@@ -2,7 +2,6 @@ import json
 import os
 
 import pytest
-import torch
 
 from grpo_difficulty import plots
 from grpo_difficulty.experiment import (

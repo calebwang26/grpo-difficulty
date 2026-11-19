@@ -380,7 +380,7 @@ Because "most" is not "all". Its tasks averaged a 3.6% true pass rate, which at 
 No, & the answer I got was not the one I expected. The world's settings were fixed by looking only at the spread of pass rates after pretraining. The learning rate was chosen with a written rule, on the random-mix arm & a validation split. The build log records the first attempt, where every arm got worse, & what was changed as a result. The two follow-up arms are labelled as added after seeing the main result.
 
 **"Why a synthetic world & not real coding tasks?"**
-Control & cost. Here the true pass rate of every task is known exactly, the verifier is perfect, a full run takes 4 minutes on a laptop, & I could repeat it 100+ times. The price is that it is a toy, & the README says so.
+Control & cost. Here the true pass rate of every task is known exactly, the verifier is perfect, a full run takes about 5 minutes on a laptop, & I could repeat it 100+ times. The price is that it is a toy, & the README says so.
 
 **"Why is the score a pass rate & not greedy accuracy?"**
 Pass rate (the probability of sampling the right answer) is what GRPO directly optimises & what an evaluation that samples would measure. Greedy accuracy is in `outputs/summary.md` too, & tells the same story: 51.6% at the start, then 38.7% (too hard), 57.6% (sweet spot), 45.7% (too easy) & 61.1% (random mix).
