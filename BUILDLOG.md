@@ -160,3 +160,30 @@ unseen. The gap to 76% means the policy partly memorised its pretraining tasks.
 they carry sampling noise. The hard bin's true mean pass rate is 4.9%, the sweet spot's
 51.1% & the easy bin's 94.2%. Tasks that got lucky or unlucky in 32 samples are in the
 "wrong" bin, exactly as they would be in a real evaluation.
+
+## Step 5: `grpo.py` (GRPO from scratch)
+
+**Built:** the GRPO loss & training loop with no RL library. For each task in a batch:
+sample G answers, reward 1 or 0, advantage = reward − group mean (optionally ÷ the
+group's standard deviation), loss = −mean(advantage × log-prob of the sampled answer),
+one Adam step. Every step logs the share of groups with a nonzero advantage.
+
+**Decisions**
+
+- *Tasks are drawn with replacement each step,* so every run with the same settings uses
+  exactly `steps × batch_tasks × group_size` samples. That is what "equal compute" means
+  in the experiment.
+- *The plain advantage is the default; ÷ std is an option.* The spec lists it as
+  optional, so the main experiment uses the plain form & the ÷ std form is an ablation.
+- *One random generator per run* drives both which tasks are picked & which answers are
+  sampled, so a run is fully determined by its seed.
+
+**Tests that matter most**
+
+- An all-correct or all-wrong group gives a loss of exactly 0 & a gradient of exactly 0,
+  with & without ÷ std.
+- The gradient on a tiny hand-worked example matches the formula
+  `−advantage × (one-hot(sampled) − softmax)`.
+- With the pass rate pinned at 20% & G = 8, the measured share of mixed groups matches
+  `signal.py`'s formula to within 1%.
+- Two runs with the same seed produce identical logs.
