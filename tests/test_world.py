@@ -4,6 +4,13 @@ import torch
 from grpo_difficulty.world import WorldConfig, encode, make_world, rule
 
 
+def test_default_rule_by_hand():
+    # defaults: stripe width 2, 16 answers. 3*15 + 3*15 = 90; 90 // 2 = 45; 45 mod 16 = 13
+    c = WorldConfig()
+    assert rule(3, 3, 15, 15, c.stripe_width, c.num_answers) == 13
+    assert rule(1, 2, 3, 4, c.stripe_width, c.num_answers) == 5  # 11 // 2 = 5
+
+
 def test_rule_by_hand():
     # (a*x + b*y) = 2*5 + 1*3 = 13; 13 // 4 = 3; 3 mod 8 = 3
     assert rule(2, 1, 5, 3, stripe_width=4, num_answers=8) == 3

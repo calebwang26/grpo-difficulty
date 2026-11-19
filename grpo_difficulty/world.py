@@ -29,8 +29,8 @@ import torch
 
 @dataclass(frozen=True)
 class WorldConfig:
-    num_answers: int = 8    # how many answer tokens (stripe colours)
-    stripe_width: int = 4   # how wide a stripe is, in units of a*x + b*y
+    num_answers: int = 16   # how many answer tokens (stripe colours)
+    stripe_width: int = 2   # how wide a stripe is, in units of a*x + b*y
     max_coef: int = 3       # a & b each run from 0 to this
     grid: int = 16          # x & y each run from 0 to grid - 1
     n_pretrain: int = 800
