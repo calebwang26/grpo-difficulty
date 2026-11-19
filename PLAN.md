@@ -49,3 +49,15 @@ other libraries.
 - The task world & the main experiment settings are chosen *before* looking at which
   bin wins. Settings are never tuned to make the sweet spot look good.
 - Whatever the result is, it goes in the README as it came out.
+
+## What changed from this plan
+
+The plan above was written before any code. The file layout held. Three things changed
+during the build, each explained in `BUILDLOG.md`:
+
+- The task rule became a "stripe" version of `(a*x + b) mod m`, because the plain version
+  was memorised rather than learned.
+- The world got a fourth split (`val`) & grew to 15,360 tasks, because with 300 tasks per
+  bin GRPO memorised its training tasks.
+- The learning rate is chosen by a fixed rule on the random-mix arm instead of being set
+  by hand.
